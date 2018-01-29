@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>客服接口</title>
+</head>
+<body>
+<table>
+	<tr>
+		<th>openid</th>
+		<th>nickname</th>
+		<th>sex</th>
+		<th>city</th>
+		<th>操作</th>
+	</tr>
+	{volist name="info" id="vo"}
+		<tr>
+			<th>{$vo.openid}</th>
+			<th>{$vo.nickname}</th>
+			<th>{$vo.sex}</th>
+			<th>{$vo.city}</th>
+			<th>回复</th>
+		</tr>
+	{/volist}
+</table>
+</body>
+</html>

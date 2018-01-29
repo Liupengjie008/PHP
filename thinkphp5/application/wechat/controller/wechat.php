@@ -1,8 +1,31 @@
 <?php
 namespace app\wechat\controller;
 use think\phpanalysis\phpanalysis;
+use think\Db;
+use think\Cache;
 class wechat
 {	
+
+    //构造函数
+    function __construct() {
+        if(Cache::get('access_token')){
+            //声明一个常量定义一个token值
+            define("ACCESS_TOKEN", Cache::get('access_token'));
+        }else{
+            $appid="wxb9e913d1b2e3c475";
+            $secret="4834897327e888eceeb5b1a0a3ec2af8";
+
+            $json=$this->https_request("https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={$appid}&secret={$secret}");
+
+            $arr= json_decode($json, true);
+
+            $access_token = $arr["access_token"];
+            // 使用文件缓存
+            Cache::set('access_token',$access_token,3600);
+            define("ACCESS_TOKEN", Cache::get('access_token'));
+        }
+        
+    }
 	//验证签名
     public function valid()
     {
@@ -316,13 +339,17 @@ $item_str
         switch ($object->Event)
         {
             case "subscribe":   //关注事件
-                $content = "欢迎关注刘鹏杰测试号";
+                /*  请求获取用户基本信息接口，获取用户基本信息
+                    存入User数据库
+                    FromUserName    发送方帐号（一个OpenID）
+                */
+                $content = $this->get_userInfo($object->FromUserName);
                 break;
             case "unsubscribe": //取消关注事件
                 $content = "一路走好";
                 break;
             case "LOCATION": //获取用户地理位置
-                $content = "欢迎来到刘鹏杰测试号~";
+                $content = "你好，我是聊天机器人Murphy，快快开始撩我吧~";
                 break;
         }
         $result = $this->transmitText($object, $content);
@@ -413,6 +440,92 @@ $item_str
         $okresult = $pa->GetFinallyResult(' ', $do_prop);
 
         return $okresult;
+    }
+
+    //获取用户基本信息（包括UnionID机制）
+    public function get_userInfo($OpenID){
+        $url = "https://api.weixin.qq.com/cgi-bin/user/info?access_token=".ACCESS_TOKEN."&openid={$OpenID}&lang=zh_CN";
+        $userInfo = $this->https_request($url);
+        $data = json_decode($userInfo,true);
+        $res = Db::name('user')->where("openid = '{$OpenID}'")->find();
+        if(!$res){
+            Db::name('user')->insert($data);
+            $text = '欢迎'.$data['nickname'].'关注刘鹏杰测试号';
+        }else{
+            $data_update = array(
+                'subscribe'     =>$data['subscribe'],
+                'nickname'      =>$data['nickname'],
+                'sex'           =>$data['sex'],
+                'city'          =>$data['city'],
+                'country'       =>$data['country'],
+                'province'      =>$data['province'],
+                'language'      =>$data['language'],
+                'headimgurl'    =>$data['headimgurl'],
+                'subscribe_time'      =>$data['subscribe_time'],
+                'unionid'      =>isset($data['unionid'])?$data['unionid']:'',
+                'remark'      =>$data['remark'],
+                'groupid'      =>$data['groupid'],
+                'tagid_list'      =>$data['tagid_list'],
+            );
+            Db::name('user')->where("openid = '{$OpenID}'")->update($data_update);
+            $text = '哎呀'.$data['nickname'].'，你又浪回来了~';
+        }
+        return $text;
+    }
+
+    public function https_request($url, $data = null)
+    {
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, FALSE);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, FALSE);
+        if (!empty($data)){
+            curl_setopt($curl, CURLOPT_POST, 1);
+            curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
+        }
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+        $output = curl_exec($curl);
+        curl_close($curl);
+        return $output;
+    }
+
+    // 客服接口-发消息
+    public function custom_service($openid,$msgtype,$message){
+        $url = 'https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token='.ACCESS_TOKEN;
+        switch ($msgtype) {
+            case 'text'://发送文本消息
+                $data['touser'] = $openid;
+                $data['msgtype'] = $msgtype;
+                $data[$msgtype] = array('content'=>$message);
+                $data = json_encode($data);
+                $this->https_request($url,$data);
+                break;
+            case 'image'://发送图片消息
+                # code...
+                break;
+            case 'voice'://发送语音消息
+                # code...
+                break;
+            case 'video'://发送视频消息
+                # code...
+                break;
+            case 'music'://发送音乐消息
+                # code...
+                break;
+            case 'news'://发送图文消息（点击跳转到外链） 图文消息条数限制在8条以内，注意，如果图文数超过8，则将会无响应。
+                # code...
+                break;
+            case 'mpnews'://发送图文消息（点击跳转到图文消息页面） 图文消息条数限制在8条以内，注意，如果图文数超过8，则将会无响应。
+                # code...
+                break;
+            case 'wxcard'://发送卡券
+                # code...
+                break;
+            default://报错自动返回
+                return;
+                break;
+        }
+
     }
 
 
