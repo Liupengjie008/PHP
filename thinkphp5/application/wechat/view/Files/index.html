@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>index</title>
+</head>
+<body>
+	<a href="{:url('wechat/files/add', '', '')}">添加</a>
+	<br>
+	<br>
+	<br>
+	<br>
+	<table>
+	<tr>
+		<th>id</th>
+		<th>图片</th>
+		<th>下载</th>
+	</tr>
+	{volist name="info" id="vo"}
+		<tr>
+			<td>{$vo.id}</td>
+			<td><img height="20" width="20" src="{$local}{$vo.local_url}"></td>
+			<!--下载临时素材-->
+			<td><a href="{$vo.url}" download="下载二维码">下载</a></td>
+		</tr>
+	{/volist}
+	</table>
+</body>
+</html>

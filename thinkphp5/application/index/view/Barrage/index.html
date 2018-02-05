@@ -1,0 +1,236 @@
+<!DOCTYPE html>  
+<html>  
+<head>  
+    <meta charset="utf-8">  
+    <title></title>  
+</head>  
+  
+<style type="text/css">  
+  
+*{  
+    margin: 0;  
+    padding: 0;  
+}  
+  
+  
+#navBar{  
+    width: 50%;  
+    height: 400px;  
+    padding-bottom:40px;  
+    border: 1px solid #000;  
+    margin: 5% auto 0;  
+    position: relative;  
+    background: #ccc;  
+}  
+  
+#navBar #video{  
+    width:100%;  
+    height:100%;  
+    background:#fcfcfc;  
+    text-align:center;  
+}  
+  
+#navBar .dm_tool{  
+    width: 100%;  
+    height: 40px;  
+    background: #ccc;  
+    margin-top:1px;  
+    bottom: 0;  
+    display: flex;  
+}  
+  
+#navBar .dm_tool .dm_con{  
+    width: 89%;  
+    height: 38px;  
+    outline: none;  
+    border: 1px solid #ccc;  
+    padding-left: 10px;  
+    float: left;      
+}  
+  
+#navBar .dm_tool .sendToDm{  
+    width: 9.7%;  
+    background: limegreen;  
+    color: white;  
+    outline: none;  
+    border: 0;    
+    cursor:pointer;  
+}  
+  
+#navBar .dmArea{  
+    width:100%;  
+    height:400px;  
+    top:0;  
+    left:0;  
+    position:absolute;  
+    z-index:10;  
+    overflow:hidden;  
+}  
+  
+#navBar .dmArea span{  
+    white-space:nowrap;  
+    position:absolute;  
+}  
+</style>  
+  
+<body>  
+  
+<div id="navBar">  
+    <div id="video"><span style="position:absolute;top:45%;left:45%;">假装在播放视频</span></div>  
+    <div class="dm_tool">  
+        <input type="text" placeholder="say something..." name="dm_con" class="dm_con" />  
+        <button class="sendToDm">发一弹</button>  
+    </div>  
+    <div class="dmArea">  
+        <!--span>假装在播放视频 假装在播放视频 </span-->  
+    </div>  
+</div>  
+  
+  
+</body>  
+<script src="http://libs.baidu.com/jquery/1.9.1/jquery.js"></script>  
+<script type="text/javascript">  
+  
+var DmClass = {  
+    "Dm_H":0, //弹幕区域高度  
+    "Dm_W":0,//弹幕区域宽度  
+    "DmObj":"",//弹幕区对象  
+  
+    //初始化方法  
+    init :  function(){  
+        var _this  = this;  
+  
+        _this.DmObj = $(".dmArea");  
+        _this.Dm_H = _this.DmObj.height();  
+        _this.Dm_W = _this.DmObj.width();  
+  
+        //发送弹幕方法  
+        _this.sendToDmFunc();  
+    },  
+  
+    sendToDmFunc    :       function(){  
+        var _this = this;  
+          
+        $(".sendToDm").click(function(){  
+  
+  
+            var sendCon = $('input[name="dm_con"]').val();  
+            if($.trim(sendCon) == "") {  
+                var testList = ["hello world!","你好","视频真好看","吹牛我就服你！！","哈哈哈"];  
+                var _s = Math.floor(Math.random()*5);  
+                sendCon = testList[_s];  
+                //return false;  
+            }  
+  
+            //json 数据格式  
+            var sData = '{"data":"'+sendCon+'"}';  
+            //发送到sockey服务器  
+            SocketClass.websocket.send(sData);  
+  
+  
+  
+        });  
+    },  
+  
+    //往弹幕区域添加从服务器广播过来的弹幕数据  
+    addToDm :   function(rdata){  
+        var _this = this;  
+  
+        //json转对象  
+        var newObj = eval('(' + rdata + ')');  
+  
+        //定义新的弹幕对象  
+        var newDom = $("<span></span>");  
+  
+        //随机取一个位置  
+        var p = _this.randPosition();  
+  
+        //放入弹幕内容  
+        newDom.html(newObj.data);  
+        _this.DmObj.append(newDom);  
+  
+        //设置初始位置为弹幕区的最右边  
+        newDom.css({"left":_this.Dm_W+"px","top":p+"px"});  
+  
+  
+        //当前单条弹幕位置  
+        var tR = _this.Dm_W;  
+        //定时器 20毫秒执行一次  
+        var newTimer = setInterval(function(){  
+  
+            tR -= 2;  
+  
+            //当弹幕走出弹幕区将之删除，并清除当前的定时器  
+            if(tR <= -newDom.width()){  
+                newDom.remove();  
+                clearInterval(newTimer);  
+            }  
+            //新位置  
+            newDom.css("left",tR+"px");  
+        },20);  
+  
+    },  
+  
+    //随机获取位置  
+    randPosition    :   function(){  
+        var _this = this;  
+        var rn = Math.floor(Math.random()*(_this.Dm_H - 20));  
+        return rn;  
+    },  
+  
+}  
+
+
+//sockey 服务  
+var SocketClass = {  
+    "wsServer":"ws://192.168.1.189:2000", //服务地址  
+    "websocket":"", //socket 对象  
+    init    :   function(){  
+        var _this = this;  
+  
+        //连接docket  
+        _this.socketServerInit();  
+    },  
+  
+    socketServerInit    :   function(){  
+        var _this = this;  
+        _this.websocket = new WebSocket(_this.wsServer);  
+  
+        //连接上socket  
+        _this.websocket.onopen = function (evt) {  
+            console.log("Connected to WebSocket server.");  
+        };  
+  
+        //socket 服务器关闭  
+        _this.websocket.onclose = function (evt) {  
+            alert("socket server closed");  
+            console.log("Disconnected");  
+        };  
+  
+        //接收socket服务器的广播数据  
+        _this.websocket.onmessage = function (evt) {  
+            console.log('Retrieved data from server: ' + evt.data);  
+  
+            //将接收到的弹幕数据调用addToDm方法 添加到弹幕区域  
+            DmClass.addToDm(evt.data);  
+        };  
+  
+        //连接错误  
+        _this.websocket.onerror = function (evt, e) {  
+            console.log('Error occured: ' + evt.data);  
+        };  
+    },  
+  
+  
+} 
+
+  
+//初始执行方法  
+$(function(){  
+    DmClass.init();  
+    SocketClass.init();  
+});  
+  
+  
+</script>  
+</html>  
